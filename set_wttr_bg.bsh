@@ -1,0 +1,19 @@
+#!/bin/bash
+#$ver:1.0
+LC_ALL=C
+UUNIT="$(basename $0)-$(uuidgen)"
+read -r res_xrandr _ < <(xrandr | grep "*" | head -1)
+readarray -d x res <<< ${res_xrandr}
+let WIDTH=${res[0]//x/} ; export WIDTH
+let HEIGHT=${res[1]//x/} ; export HEIGHT
+readarray bg_array < <(wget -O - -q reddit.com/r/earthporn.json | jq --raw-output '.data.children[] | { url: .data.url_overridden_by_dest, link: .data.permalink, image: .data.preview.images[]?, width: env.WIDTH | tonumber, height: env.HEIGHT | tonumber } | select(.image.source.width>=.width and .image.source.height>=.height and .image.source.width>.image.source.height) | (.url+"|"+"https://reddit.com"+.link)')
+
+bg_array_num=$(($RANDOM % ${#bg_array[@]}))
+bg_item=${bg_array[$bg_array_num]}
+readarray -d "|" bg_item <<< ${bg_array[$bg_array_num]}
+
+echo ${bg_item[1]}
+
+wget -O - -q ${bg_item[0]//|/} | convert - -resize $WIDTH\>x$HEIGHT - | convert - -font Arial -fill white -pointsize 36 -gravity center -draw "text 0,600 '${bg_item[1]}'" - | convert - <(wget -O - -q http://wttr.in/ROV_tqpQ0_transparency=200.png) -geometry -$((WIDTH / 3))-$((HEIGHT / 3)) -gravity Center -composite - | feh --no-fehbg --bg-fill -
+
+systemd-run --quiet --unit="${UUNIT}" --user --collect --on-active=15m "$0"
